@@ -21,7 +21,8 @@ Each line is a KDE global shortcut action identifier:
 EOF
 }
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+PROJECT_ROOT="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
 CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 SIGS_CONFIG_DIR="$CONFIG_HOME/sigs"
 ALLOWLIST="$SIGS_CONFIG_DIR/allowlist"
