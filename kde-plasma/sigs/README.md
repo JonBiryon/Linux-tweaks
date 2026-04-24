@@ -28,7 +28,7 @@ Install and rebuild in one step:
 ```bash
 sigs gui
 sigs edit
-sigs configure
+sigs apply
 sigs list
 sigs rebuild
 ```

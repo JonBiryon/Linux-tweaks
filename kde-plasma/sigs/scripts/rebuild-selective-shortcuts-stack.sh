@@ -135,7 +135,7 @@ main() {
     build_kglobalacceld
     build_kwin
 
-    "$PROJECT_ROOT/scripts/selective-global-shortcuts.sh" configure
+    "$PROJECT_ROOT/scripts/selective-global-shortcuts.sh" apply
     systemctl --user restart plasma-kglobalaccel.service || true
 
     if $hold_packages; then

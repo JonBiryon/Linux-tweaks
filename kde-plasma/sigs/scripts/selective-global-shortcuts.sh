@@ -4,7 +4,7 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  sigs configure
+  sigs apply
   sigs edit
   sigs pick
   sigs gui
@@ -35,7 +35,7 @@ read_allowlist() {
     )
 }
 
-configure_allowlist() {
+apply_allowlist() {
     read_allowlist
     if ((${#allowed_actions[@]} == 0)); then
         dbus-send \
@@ -111,16 +111,16 @@ HEADER
         printf '%s\n' "$selected"
     } >"$ALLOWLIST"
 
-    configure_allowlist
+    apply_allowlist
 }
 
 case "${1:-}" in
-    configure)
-        configure_allowlist
+    apply)
+        apply_allowlist
         ;;
     edit)
         "${EDITOR:-nano}" "$ALLOWLIST"
-        configure_allowlist
+        apply_allowlist
         ;;
     pick)
         pick_allowlist
