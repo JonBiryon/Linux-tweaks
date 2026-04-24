@@ -1,0 +1,241 @@
+diff -ruN a/src/activation.cpp b/src/activation.cpp
+--- a/src/activation.cpp	2025-09-09 11:26:30.000000000 +0300
++++ b/src/activation.cpp	2026-04-20 09:38:10.520058583 +0300
+@@ -262,9 +262,11 @@
+     }
+ 
+     if (window) {
+-        disableGlobalShortcutsForClient(window->rules()->checkDisableGlobalShortcuts(false));
++        const bool disableGlobalShortcuts = window->rules()->checkDisableGlobalShortcuts(false);
++        const bool selectiveGlobalShortcuts = !disableGlobalShortcuts && window->rules()->checkSelectiveGlobalShortcuts(false);
++        setGlobalShortcutBlockingForClient(disableGlobalShortcuts, selectiveGlobalShortcuts);
+     } else {
+-        disableGlobalShortcutsForClient(false);
++        setGlobalShortcutBlockingForClient(false, false);
+     }
+ 
+     updateStackingOrder(); // e.g. fullscreens have different layer when active/not-active
+diff -ruN a/src/kcms/rules/rulesmodel.cpp b/src/kcms/rules/rulesmodel.cpp
+--- a/src/kcms/rules/rulesmodel.cpp	2025-09-09 11:26:30.000000000 +0300
++++ b/src/kcms/rules/rulesmodel.cpp	2026-04-20 09:38:28.705024362 +0300
+@@ -696,6 +696,14 @@
+                                                  "or use any other global shortcuts such as <shortcut>Alt+Space</shortcut> to "
+                                                  "activate KRunner.")));
+ 
++    addRule(new RuleItem(QLatin1String("selectiveglobalshortcuts"),
++                         RulePolicy::ForceRule, RuleItem::Boolean,
++                         i18n("Ignore selective global shortcuts"), i18n("Appearance & Fixes"),
++                         QIcon::fromTheme("input-keyboard"),
++                         xi18nc("@info:tooltip", "Use this property to prevent most global keyboard shortcuts from working while "
++                                                 "the window is focused, while still allowing the actions configured in "
++                                                 "kglobalacceld's selective global shortcuts allowlist.")));
++
+     addRule(new RuleItem(QLatin1String("closeable"),
+                          RulePolicy::ForceRule, RuleItem::Boolean,
+                          i18n("Closeable"), i18n("Appearance & Fixes"),
+diff -ruN a/src/rules.cpp b/src/rules.cpp
+--- a/src/rules.cpp	2025-09-09 11:26:31.000000000 +0300
++++ b/src/rules.cpp	2026-04-20 09:37:41.845112544 +0300
+@@ -75,6 +75,7 @@
+     , strictgeometryrule(UnusedForceRule)
+     , shortcutrule(UnusedSetRule)
+     , disableglobalshortcutsrule(UnusedForceRule)
++    , selectiveglobalshortcutsrule(UnusedForceRule)
+     , desktopfilerule(UnusedSetRule)
+     , adaptivesyncrule(UnusedForceRule)
+     , tearingrule(UnusedForceRule)
+@@ -161,6 +162,7 @@
+     READ_FORCE_RULE(strictgeometry, );
+     READ_SET_RULE(shortcut);
+     READ_FORCE_RULE(disableglobalshortcuts, );
++    READ_FORCE_RULE(selectiveglobalshortcuts, );
+     READ_SET_RULE(desktopfile);
+     READ_FORCE_RULE(layer, );
+     READ_FORCE_RULE(adaptivesync, );
+@@ -250,6 +252,7 @@
+     WRITE_FORCE_RULE(strictgeometry, Strictgeometry, );
+     WRITE_SET_RULE(shortcut, Shortcut, );
+     WRITE_FORCE_RULE(disableglobalshortcuts, Disableglobalshortcuts, );
++    WRITE_FORCE_RULE(selectiveglobalshortcuts, Selectiveglobalshortcuts, );
+     WRITE_SET_RULE(desktopfile, Desktopfile, );
+     WRITE_FORCE_RULE(layer, Layer, );
+     WRITE_FORCE_RULE(adaptivesync, Adaptivesync, );
+@@ -296,6 +299,7 @@
+         && strictgeometryrule == UnusedForceRule
+         && shortcutrule == UnusedSetRule
+         && disableglobalshortcutsrule == UnusedForceRule
++        && selectiveglobalshortcutsrule == UnusedForceRule
+         && desktopfilerule == UnusedSetRule
+         && layerrule == UnusedForceRule
+         && adaptivesyncrule == UnusedForceRule
+@@ -714,6 +718,7 @@
+ APPLY_FORCE_RULE(strictgeometry, StrictGeometry, bool)
+ APPLY_RULE(shortcut, Shortcut, QString)
+ APPLY_FORCE_RULE(disableglobalshortcuts, DisableGlobalShortcuts, bool)
++APPLY_FORCE_RULE(selectiveglobalshortcuts, SelectiveGlobalShortcuts, bool)
+ APPLY_RULE(desktopfile, DesktopFile, QString)
+ APPLY_FORCE_RULE(adaptivesync, AdaptiveSync, bool)
+ APPLY_FORCE_RULE(tearing, Tearing, bool)
+@@ -773,6 +778,7 @@
+     DISCARD_USED_FORCE_RULE(strictgeometry);
+     DISCARD_USED_SET_RULE(shortcut);
+     DISCARD_USED_FORCE_RULE(disableglobalshortcuts);
++    DISCARD_USED_FORCE_RULE(selectiveglobalshortcuts);
+     DISCARD_USED_SET_RULE(desktopfile);
+     DISCARD_USED_FORCE_RULE(layer);
+     DISCARD_USED_FORCE_RULE(adaptivesync);
+@@ -922,6 +928,7 @@
+ CHECK_FORCE_RULE(StrictGeometry, bool)
+ CHECK_RULE(Shortcut, QString)
+ CHECK_FORCE_RULE(DisableGlobalShortcuts, bool)
++CHECK_FORCE_RULE(SelectiveGlobalShortcuts, bool)
+ CHECK_RULE(DesktopFile, QString)
+ CHECK_FORCE_RULE(Layer, Layer)
+ CHECK_FORCE_RULE(AdaptiveSync, bool)
+diff -ruN a/src/rules.h b/src/rules.h
+--- a/src/rules.h	2025-09-09 11:26:31.000000000 +0300
++++ b/src/rules.h	2026-04-20 09:37:26.690141063 +0300
+@@ -75,6 +75,7 @@
+     bool checkStrictGeometry(bool strict) const;
+     QString checkShortcut(QString s, bool init = false) const;
+     bool checkDisableGlobalShortcuts(bool disable) const;
++    bool checkSelectiveGlobalShortcuts(bool disable) const;
+     QString checkDesktopFile(QString desktopFile, bool init = false) const;
+     Layer checkLayer(Layer layer) const;
+     bool checkAdaptiveSync(bool adaptivesync) const;
+@@ -187,6 +188,7 @@
+     bool applyStrictGeometry(bool &strict) const;
+     bool applyShortcut(QString &shortcut, bool init) const;
+     bool applyDisableGlobalShortcuts(bool &disable) const;
++    bool applySelectiveGlobalShortcuts(bool &disable) const;
+     bool applyDesktopFile(QString &desktopFile, bool init) const;
+     bool applyLayer(enum Layer &layer) const;
+     bool applyAdaptiveSync(bool &adaptivesync) const;
+@@ -297,6 +299,8 @@
+     SetRule shortcutrule;
+     bool disableglobalshortcuts;
+     ForceRule disableglobalshortcutsrule;
++    bool selectiveglobalshortcuts;
++    ForceRule selectiveglobalshortcutsrule;
+     QString desktopfile;
+     SetRule desktopfilerule;
+     bool adaptivesync;
+diff -ruN a/src/rulesettings.kcfg b/src/rulesettings.kcfg
+--- a/src/rulesettings.kcfg	2025-09-09 11:26:31.000000000 +0300
++++ b/src/rulesettings.kcfg	2026-04-20 09:37:17.680158018 +0300
+@@ -425,6 +425,15 @@
+       <default code="true">Rules::UnusedForceRule</default>
+     </entry>
+ 
++    <entry name="selectiveglobalshortcuts" type="Bool">
++      <label>Ignore selective global shortcuts</label>
++      <default>false</default>
++    </entry>
++    <entry name="selectiveglobalshortcutsrule" type="Int">
++      <label>Ignore selective global shortcuts rule type</label>
++      <default code="true">Rules::UnusedForceRule</default>
++    </entry>
++
+     <entry name="desktopfile" type="String">
+       <label>Desktop file name</label>
+     </entry>
+diff -ruN a/src/window.cpp b/src/window.cpp
+--- a/src/window.cpp	2025-09-09 11:26:31.000000000 +0300
++++ b/src/window.cpp	2026-04-20 09:38:18.514043540 +0300
+@@ -4564,7 +4564,9 @@
+     // see also X11Window::setActive()
+     if (isActive()) {
+         setOpacity(rules()->checkOpacityActive(qRound(opacity() * 100.0)) / 100.0);
+-        workspace()->disableGlobalShortcutsForClient(rules()->checkDisableGlobalShortcuts(false));
++        const bool disableGlobalShortcuts = rules()->checkDisableGlobalShortcuts(false);
++        const bool selectiveGlobalShortcuts = !disableGlobalShortcuts && rules()->checkSelectiveGlobalShortcuts(false);
++        workspace()->setGlobalShortcutBlockingForClient(disableGlobalShortcuts, selectiveGlobalShortcuts);
+     } else {
+         setOpacity(rules()->checkOpacityInactive(qRound(opacity() * 100.0)) / 100.0);
+     }
+diff -ruN a/src/workspace.cpp b/src/workspace.cpp
+--- a/src/workspace.cpp	2025-09-09 11:26:31.000000000 +0300
++++ b/src/workspace.cpp	2026-04-20 09:38:04.071070719 +0300
+@@ -1540,19 +1540,40 @@
+ 
+ void Workspace::disableGlobalShortcutsForClient(bool disable)
+ {
+-    if (m_globalShortcutsDisabledForWindow == disable) {
++    setGlobalShortcutBlockingForClient(disable, false);
++}
++
++void Workspace::setGlobalShortcutBlockingForClient(bool disable, bool selective)
++{
++    const GlobalShortcutBlocking blocking = disable ? GlobalShortcutBlocking::All : selective ? GlobalShortcutBlocking::Selective
++                                                                                              : GlobalShortcutBlocking::None;
++    if (m_globalShortcutBlockingForWindow == blocking) {
+         return;
+     }
+ #ifdef KWIN_BUILD_GLOBALSHORTCUTS
+-    QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.kglobalaccel"),
+-                                                          QStringLiteral("/kglobalaccel"),
+-                                                          QStringLiteral("org.kde.KGlobalAccel"),
+-                                                          QStringLiteral("blockGlobalShortcuts"));
+-    message.setArguments(QList<QVariant>() << disable);
+-    QDBusConnection::sessionBus().asyncCall(message);
++    auto callGlobalAccel = [](const QString &method, bool enabled) {
++        QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.kde.kglobalaccel"),
++                                                              QStringLiteral("/kglobalaccel"),
++                                                              QStringLiteral("org.kde.KGlobalAccel"),
++                                                              method);
++        message.setArguments(QList<QVariant>() << enabled);
++        QDBusConnection::sessionBus().asyncCall(message);
++    };
++
++    if (m_globalShortcutBlockingForWindow == GlobalShortcutBlocking::All) {
++        callGlobalAccel(QStringLiteral("blockGlobalShortcuts"), false);
++    } else if (m_globalShortcutBlockingForWindow == GlobalShortcutBlocking::Selective) {
++        callGlobalAccel(QStringLiteral("blockGlobalShortcutsSelective"), false);
++    }
++
++    if (blocking == GlobalShortcutBlocking::All) {
++        callGlobalAccel(QStringLiteral("blockGlobalShortcuts"), true);
++    } else if (blocking == GlobalShortcutBlocking::Selective) {
++        callGlobalAccel(QStringLiteral("blockGlobalShortcutsSelective"), true);
++    }
+ #endif
+ 
+-    m_globalShortcutsDisabledForWindow = disable;
++    m_globalShortcutBlockingForWindow = blocking;
+ }
+ 
+ QString Workspace::supportInformation() const
+diff -ruN a/src/workspace.h b/src/workspace.h
+--- a/src/workspace.h	2025-09-09 11:26:31.000000000 +0300
++++ b/src/workspace.h	2026-04-20 09:37:51.890093641 +0300
+@@ -400,6 +400,7 @@
+     bool shortcutAvailable(const QKeySequence &cut, Window *ignore = nullptr) const;
+     bool globalShortcutsDisabled() const;
+     void disableGlobalShortcutsForClient(bool disable);
++    void setGlobalShortcutBlockingForClient(bool disable, bool selective);
+ 
+     void setWasUserInteraction();
+     bool wasUserInteraction() const;
+@@ -721,7 +722,12 @@
+ 
+     ShortcutDialog *m_windowKeysDialog = nullptr;
+     Window *m_windowKeysWindow = nullptr;
+-    bool m_globalShortcutsDisabledForWindow = false;
++    enum class GlobalShortcutBlocking {
++        None,
++        All,
++        Selective,
++    };
++    GlobalShortcutBlocking m_globalShortcutBlockingForWindow = GlobalShortcutBlocking::None;
+ 
+     // Timer to collect requests for 'reconfigure'
+     QTimer reconfigureTimer;
+@@ -851,7 +857,7 @@
+ 
+ inline bool Workspace::globalShortcutsDisabled() const
+ {
+-    return m_globalShortcutsDisabledForWindow;
++    return m_globalShortcutBlockingForWindow != GlobalShortcutBlocking::None;
+ }
+ 
+ inline void Workspace::forceRestacking()
