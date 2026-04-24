@@ -6,6 +6,10 @@ SIGS adds a separate `Ignore selective global shortcuts` window rule without cha
 
 Selective mode uses KDE action identifiers, not physical key combinations.
 
+## Release
+
+https://github.com/JonBiryon/Linux-tweaks/releases/download/sigs/sigs.tar.gz
+
 ## Scope
 
 - KDE Plasma systems using KWin and KGlobalAccel
