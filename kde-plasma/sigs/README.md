@@ -2,7 +2,7 @@
 
 Selective Ignore Global Shortcuts for KDE Plasma.
 
-SIGS adds a separate `Ignore selective global shortcuts` window rule. It's similar to KDE's stock `Ignore global shortcuts` which forces a window to consume global shortcuts instead of the OS, except sigs exludes shortcut actions selected by the user.
+SIGS adds a separate `Ignore selective global shortcuts` window rule. It's similar to KDE's stock `Ignore global shortcuts` which forces a window to consume global shortcuts instead of the OS, except sigs excludes shortcut actions selected by the user.
 
 SIGS also adds a separate KWin window rule:
 
@@ -13,6 +13,10 @@ Keep above while active
 That rule keeps a window above normal windows only while it is focused.
 
 Selective mode uses KDE action identifiers, not physical key combinations.
+
+## Release
+
+[sigs v1.1](https://github.com/JonBiryon/Linux-tweaks/releases/tag/sigs1.1)
 
 ## Scope
 
